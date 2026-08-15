@@ -1,7 +1,7 @@
 ---
 name: plan-to-ics
-description: Convert a user's plans, schedule, or to-do list into a standards-compliant .ics calendar file that can be imported into Apple Calendar, Google Calendar, or Outlook. Use when the user asks to "把计划生成日历", "make an .ics", "generate a calendar file", "export my schedule to a calendar", "add these dates/events to my calendar", or simply lists future dates with things to do (e.g. "8月20号上午9点开会", "下周三下午3点看牙医", "9/1-9/5 去东京旅行"). Parses Chinese and English dates and times, resolves relative dates (今天/明天/后天/下周/周X), and writes the .ics via a bundled Python generator.
-version: 0.1.0
+description: Convert a user's plans, schedule, or to-do list into a standards-compliant .ics calendar file that can be imported into Apple Calendar, Google Calendar, or Outlook. Use when the user asks to "把计划生成日历", "make an .ics", "generate a calendar file", "export my schedule to a calendar", "add these dates/events to my calendar", or simply lists future dates with things to do (e.g. "8月20号上午9点开会", "下周三下午3点看牙医", "9/1-9/5 去东京旅行"). Parses Chinese and English dates and times, resolves relative dates (今天/明天/后天/下周/周X) and recurring events (每周X/每N天/每月N号/N次/直到X), and writes the .ics via a bundled Python generator.
+version: 0.2.0
 ---
 
 # Plan to ICS
@@ -55,6 +55,32 @@ Rules:
 - No time at all → **all-day** event (`VALUE=DATE`).
 - "全天" / "一整天" / "整天" / "all day" → all-day event.
 
+### Recurrence
+
+Resolve recurring phrases into a `recurrence` object (see Step 3):
+
+| Phrase | recurrence |
+|---|---|
+| 每天 / every day | `{"freq": "DAILY"}` |
+| 每N天 / every N days | `{"freq": "DAILY", "interval": N}` |
+| 每周一 / 每周X / every Monday | `{"freq": "WEEKLY", "byday": ["MO"]}` |
+| 每周一三五 / Mon, Wed, Fri | `{"freq": "WEEKLY", "byday": ["MO","WE","FR"]}` |
+| 每N周 / every N weeks | `{"freq": "WEEKLY", "interval": N}` |
+| 每月N号 / the Nth of each month | `{"freq": "MONTHLY", "bymonthday": N}` |
+| 每N个月 / every N months | `{"freq": "MONTHLY", "interval": N}` |
+| 每年 / every year | `{"freq": "YEARLY"}` |
+
+Weekday codes: `MO TU WE TH FR SA SU`.
+
+Bound the recurrence with `count` (occurrences) or `until` (inclusive
+last-occurrence date); the two are mutually exclusive. Prefer `count` when you
+can compute it; `until` is simplest for all-day events. A timed event with
+`until` requires a `timezone` (its UNTIL must be a UTC instant).
+
+- "跑12次" / "12 times" → `"count": 12`
+- "直到12月底" / "until the end of December" → resolve the last date and use
+  `"until": "2026-12-31"`
+
 ## Step 3 — Build the JSON
 
 Build a JSON object with the schema below, write it to a temp file, and pass
@@ -73,6 +99,12 @@ issues.
       "end": "2026-08-20T10:00",
       "location": "NTU N4-B2",
       "description": "讨论 Q3 路线图"
+    },
+    {
+      "summary": "晨跑",
+      "start": "2026-08-24T07:00",
+      "end": "2026-08-24T08:00",
+      "recurrence": { "freq": "WEEKLY", "byday": ["MO", "WE", "FR"], "count": 12 }
     }
   ]
 }
@@ -82,23 +114,33 @@ issues.
 2026-08-20 is `start: "2026-08-20", end: "2026-08-21"`. A range covering
 09-01 through 09-05 is `end: "2026-09-06"`.
 
+**`recurrence`** is optional. When present, the event repeats per Step 2's
+mapping. `count` and `until` are mutually exclusive; a timed event with
+`until` needs a `timezone`.
+
 ## Step 4 — Generate the .ics
 
-The generator is bundled at `${CLAUDE_SKILL_DIR}/scripts/generate_ics.py`
-(`${CLAUDE_SKILL_DIR}` resolves to the directory containing this SKILL.md,
-whether the skill is installed manually or as a plugin). Run it with the
-Python launcher available on the machine — `python` on Windows, `python3` on
-macOS/Linux:
+Run the bundled launcher, which locates the generator whether the package is
+pip-installed or shipped at the plugin/repo root:
 
 ```bash
 python3 "${CLAUDE_SKILL_DIR}/scripts/generate_ics.py" events.json output.ics
 ```
 
+If the launcher reports that `plan_to_ics` is not installed, install it first
+(`pip install plan-to-ics`, or `pip install -e .` from the repo root), then
+retry the launcher or run the module directly:
+
+```bash
+python3 -m plan_to_ics events.json output.ics
+```
+
 - `events.json` — the JSON from Step 3.
 - `output.ics` — where to write the result.
 
-If `python3` exits with a strange code (e.g. 49) on Windows, it is the
-Microsoft Store stub — use `python` instead.
+Use `python` on Windows, `python3` on macOS/Linux. If `python3` exits with a
+strange code (e.g. 49) on Windows, it is the Microsoft Store stub — use
+`python` instead.
 
 ## Step 5 — Save and report
 

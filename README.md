@@ -8,19 +8,19 @@
     <img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg" />
     <img alt="Python" src="https://img.shields.io/badge/python-3.9%2B-blue.svg" />
     <img alt="Claude Code" src="https://img.shields.io/badge/claude%20code-skill-orange.svg" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.2.0-blue" />
   </p>
 </p>
 
 ---
 
-A [Claude Code](https://claude.com/code) skill that takes a schedule written the
-way you'd actually say it — *"team meeting Aug 20 at 9am"*, *"dentist next
-Wednesday at 3pm"*, *"Tokyo trip Sept 1–5"* — and produces a standards-compliant
-[RFC 5545](https://datatracker.ietf.org/doc/html/rfc5545) `iCalendar` file you
-can double-click to import.
+Paste a whole schedule — a syllabus, a meeting list, a plan for the coming
+months — and get one standards-compliant
+[RFC 5545](https://datatracker.ietf.org/doc/html/rfc5545) `.ics` file that
+imports into your calendar in a single tap.
 
-> No accounts. No cloud. One Python file, standard library only. The generated
-> `.ics` lives on your machine and goes straight into your calendar.
+> No accounts. No cloud. The generator is one Python file, standard library
+> only. The `.ics` lives on your machine and goes straight into your calendar.
 
 ## ✨ Why this exists
 
@@ -31,6 +31,7 @@ files silently break on import:
 - ❌ lines longer than 75 octets (must be folded, UTF-8-safely)
 - ❌ unescaped commas / semicolons / newlines in event text
 - ❌ all-day events missing `VALUE=DATE`
+- ❌ recurring events with malformed `RRULE` or wrong `UNTIL`
 - ❌ timezone mix-ups that shift every event by a few hours
 
 This skill offloads all of that to a small, self-testing generator so the
@@ -43,6 +44,10 @@ result imports cleanly the first time.
 **Method 1 — Manual (works everywhere):**
 
 ```bash
+# install the generator (one command)
+pip install plan-to-ics
+
+# install the skill
 mkdir -p ~/.claude/skills
 cp -r skills/plan-to-ics ~/.claude/skills/plan-to-ics
 ```
@@ -60,26 +65,31 @@ cp -r skills/plan-to-ics ~/.claude/skills/plan-to-ics
 
 ### Use
 
-Just tell Claude your plan in plain language:
+Paste your whole plan at once, dates and times in any natural form:
 
 ```
-> Team meeting Aug 20 at 9am in NTU N4-B2; dentist next Wednesday at 3pm; Tokyo trip Sept 1–5
+> Team meeting Aug 20 9am in NTU N4-B2; dentist next Wednesday 3pm;
+  Tokyo trip Sep 1–5; morning run every Mon/Wed/Fri starting Aug 24, 12 times;
+  rent due the 1st of each month until December.
 ```
 
-The skill parses it, generates `my-plans.ics`, and hands you the file path.
-Double-click it (or File → Import in Apple Calendar) and you're done.
+The skill parses it, generates one `my-plans.ics`, and hands you the path.
+Import it (see [Importing into your calendar](#-importing-into-your-calendar))
+and everything is in.
 
 ## 📖 Example
 
-**Input** — what you say:
+**Input** — paste this:
 
 ```
 Aug 20, 9am — team meeting (NTU N4-B2, discuss the Q3 roadmap)
 Aug 22 — moving day (all day)
 Sep 1–5 — trip to Tokyo
+Every Mon/Wed/Fri 7am — morning run, 12 times
+Monthly on the 1st — rent due, until Dec
 ```
 
-**Output** — the generated `my-plans.ics`:
+**Output** — the generated `.ics` (abridged):
 
 ```text
 BEGIN:VCALENDAR
@@ -104,13 +114,24 @@ DTSTART;VALUE=DATE:20260822
 DTEND;VALUE=DATE:20260823
 SUMMARY:Moving day
 END:VEVENT
+BEGIN:VEVENT
+UID:9f1c3a10-8d2e-4b7a-a1b5-7c9d3e2f4a10@plan-to-ics
+DTSTAMP:20260815T064603Z
+DTSTART;TZID=Asia/Shanghai:20260824T070000
+DTEND;TZID=Asia/Shanghai:20260824T080000
+RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=12
+SUMMARY:Morning run
+END:VEVENT
 END:VCALENDAR
 ```
 
 Notice the details that matter: comma-escaping (`NTU\, N4-B2`), all-day events
-as `VALUE=DATE`, and `DTEND` being **exclusive** (the day *after* the event).
+as `VALUE=DATE` with exclusive `DTEND`, and a validated `RRULE` for the
+recurring run.
 
 ## 🧠 What it understands
+
+### Dates & times
 
 | You say | It resolves to |
 |---|---|
@@ -121,18 +142,46 @@ as `VALUE=DATE`, and `DTEND` being **exclusive** (the day *after* the event).
 | all day / the whole day | an all-day event |
 | Sep 1 to Sep 5 | one multi-day event, not five |
 
-Both **Chinese** and **English** date forms are supported.
+### Recurrence
+
+| You say | recurrence |
+|---|---|
+| every day / every N days | `DAILY` (+ `interval`) |
+| every Monday / every N weeks | `WEEKLY` (+ `byday`, `interval`) |
+| the Nth of each month / every N months | `MONTHLY` (+ `bymonthday`, `interval`) |
+| every year | `YEARLY` |
+| 12 times / until the end of Dec | `count` / `until` |
+
+Both **Chinese** (`今天`, `下周三`, `每月1号`, `每周一三五`) and **English**
+forms are supported.
+
+## 📲 Importing into your calendar
+
+The `.ics` is generated on your machine; the last step is getting it onto the
+device where your calendar lives.
+
+| Device | Get the file there | Then |
+|---|---|---|
+| **Mac** | the file is already local | Double-click the `.ics`, or **File → Import** → select it |
+| **iPhone / iPad** | **AirDrop** from your Mac, **email** it to yourself, or save to **iCloud Drive / Files** | Open the file in Files/Mail → tap **Add All** → pick a calendar |
+| **Google Calendar** | open in a browser | **Settings → Import & export → Import** → select the `.ics` |
+
+> On iPhone the preview lets you choose which calendar to import into and shows
+> a per-event toggle before you commit — handy for a big batch.
 
 ## 🔧 Using the generator directly
 
-The skill is a thin wrapper around a standalone script, so you can use it
-without Claude too:
+The skill is a thin wrapper around a standalone, pip-installable CLI, so you
+can use it without Claude Code at all:
 
 ```bash
-python3 scripts/generate_ics.py examples/sample-events.json output.ics
+pip install plan-to-ics
+
+plan2ics examples/sample-events.json output.ics   # or:
+python -m plan_to_ics examples/sample-events.json output.ics
 ```
 
-Input is a simple JSON schedule:
+Input is a JSON schedule:
 
 ```json
 {
@@ -147,7 +196,17 @@ Input is a simple JSON schedule:
       "description": "Discuss the Q3 roadmap"
     },
     { "summary": "Moving day", "start": "2026-08-22" },
-    { "summary": "Trip to Tokyo", "start": "2026-09-01", "end": "2026-09-06" }
+    {
+      "summary": "Morning run",
+      "start": "2026-08-24T07:00",
+      "end": "2026-08-24T08:00",
+      "recurrence": { "freq": "WEEKLY", "byday": ["MO", "WE", "FR"], "count": 12 }
+    },
+    {
+      "summary": "Rent due",
+      "start": "2026-09-01",
+      "recurrence": { "freq": "MONTHLY", "bymonthday": 1, "until": "2026-12-01" }
+    }
   ]
 }
 ```
@@ -160,12 +219,22 @@ Input is a simple JSON schedule:
 | `location`, `description` | — | optional |
 | `timezone` | — | IANA name; per-event override |
 | `uid` | — | stable UID (defaults to a UUID) |
+| `recurrence` | — | `freq` + `interval` / `byday` / `bymonthday` / `count` / `until` |
+
+**Recurrence rules:** `freq` is one of `DAILY`, `WEEKLY`, `MONTHLY`, `YEARLY`.
+`byday` (e.g. `["MO","WE"]`) is for `WEEKLY`; `bymonthday` (1–31) is for
+`MONTHLY`. Use `count` **or** `until` (not both); `until` is an inclusive
+last-occurrence date, and for a timed event it needs a `timezone` (its `UNTIL`
+must be a UTC instant).
 
 Run the built-in self-test to confirm the generator is healthy:
 
 ```bash
-python3 scripts/generate_ics.py --selftest
+plan2ics --selftest
 ```
+
+CLI options: `plan2ics <input> <output>` (stdin/stdout when omitted),
+`--name`, `--timezone`, `--selftest`, `--version`.
 
 ## 🕐 Timezone behaviour
 
@@ -181,14 +250,20 @@ the top-level `timezone` to any IANA name (`Asia/Singapore`, `America/New_York`,
 ```text
 plan-to-ics/
 ├── .claude-plugin/
-│   └── plugin.json               # plugin manifest for /plugin install
+│   ├── plugin.json               # plugin manifest for /plugin install
+│   └── marketplace.json          # marketplace manifest (GitHub distribution)
+├── plan_to_ics/                  # the pip-installable generator package
+│   ├── __init__.py
+│   ├── __main__.py               # enables python -m plan_to_ics
+│   └── generate.py               # RFC 5545 + RRULE generator (stdlib only)
 ├── skills/
 │   └── plan-to-ics/
-│       ├── SKILL.md              # the skill definition (the prompt/instructions)
+│       ├── SKILL.md              # the skill definition
 │       └── scripts/
-│           └── generate_ics.py   # RFC 5545 generator (stdlib only, self-tests)
+│           └── generate_ics.py   # thin launcher for the package
 ├── examples/
 │   └── sample-events.json        # a runnable example input
+├── pyproject.toml                # pip packaging + plan2ics entry point
 ├── LICENSE
 └── README.md
 ```
@@ -201,6 +276,8 @@ The generator enforces the parts of RFC 5545 that most commonly break imports:
 - **75-octet line folding**, never splitting inside a multi-byte UTF-8 char
 - **text escaping** for `\` `;` `,` and newlines
 - **all-day events** as `VALUE=DATE` with exclusive `DTEND`
+- **validated `RRULE`** — correct `FREQ`/`INTERVAL`/`BYDAY`/`BYMONTHDAY`, and
+  `UNTIL` serialized as a DATE (all-day) or a UTC instant (timed, via `zoneinfo`)
 - **unique `UID`** per event, UTC `DTSTAMP`
 - optional **TZID** with `X-WR-TIMEZONE` for Apple Calendar
 
@@ -209,8 +286,7 @@ The generator enforces the parts of RFC 5545 that most commonly break imports:
 ## 🤝 Contributing
 
 Bug reports and pull requests are welcome. Before changing the generator, run
-`python3 scripts/generate_ics.py --selftest` and add a case for the bug you're
-fixing.
+`python -m plan_to_ics --selftest` and add a case for the bug you're fixing.
 
 ## 📄 License
 

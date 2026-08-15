@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plan-to-ics"
+version = "0.2.0"
+description = "Generate standards-compliant .ics calendar files from a JSON schedule"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Josh Huang" }]
+keywords = ["ics", "icalendar", "ical", "calendar", "ical", "rrule", "claude-code"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Office/Business :: Scheduling",
+]
+
+[project.scripts]
+plan2ics = "plan_to_ics.generate:main"
+
+[tool.setuptools]
+packages = ["plan_to_ics"]
