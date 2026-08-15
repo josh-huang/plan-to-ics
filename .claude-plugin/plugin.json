@@ -1,0 +1,8 @@
+{
+  "name": "plan-to-ics",
+  "description": "Turn natural-language plans and schedules into a standards-compliant .ics calendar file, importable into Apple Calendar, Google Calendar, and Outlook. Parses Chinese and English dates (今天/明天/下周/几月几号), resolves relative dates, and writes RFC 5545-correct iCalendar via a bundled Python generator.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Josh Huang"
+  }
+}

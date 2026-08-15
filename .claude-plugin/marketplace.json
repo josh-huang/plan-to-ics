@@ -1,0 +1,15 @@
+{
+  "name": "plan-to-ics",
+  "description": "A single Claude Code skill that turns natural-language plans into importable .ics calendar files.",
+  "owner": {
+    "name": "Josh Huang"
+  },
+  "plugins": [
+    {
+      "name": "plan-to-ics",
+      "source": "./",
+      "description": "Turn natural-language plans and schedules into a standards-compliant .ics calendar file, importable into Apple Calendar, Google Calendar, and Outlook.",
+      "skills": ["./skills/"]
+    }
+  ]
+}
