@@ -62,7 +62,7 @@ import sys
 import uuid
 from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 PRODID = "-//plan-to-ics//Calendar//EN"
 CRLF = "\r\n"
@@ -153,6 +153,19 @@ def parse_start(value: str) -> tuple[datetime, bool]:
     except ValueError as exc:
         raise IcsError(f"invalid date {value!r}: expected YYYY-MM-DD") from exc
     return dt, True
+
+
+def validate_timezone(value: object) -> str | None:
+    """Validate IANA names before interpolating them into content lines."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise IcsError("'timezone' must be a non-empty string (IANA name, e.g. Asia/Shanghai)")
+    try:
+        ZoneInfo(value)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise IcsError(f"unknown timezone {value!r}") from exc
+    return value
 
 
 def format_start(dt: datetime, is_all_day: bool, tzid: str | None) -> str:
@@ -315,9 +328,10 @@ def build_event(evt: object, index: int, default_tz: str | None) -> list[str]:
         raise IcsError(f"event #{index} ({summary}) is missing a 'start' date")
 
     start, is_all_day = parse_start(start_raw)
-    tzid = evt.get("timezone", default_tz)
-    if tzid is not None and not isinstance(tzid, str):
-        raise IcsError(f"event #{index} ({summary}) has a non-string 'timezone'")
+    try:
+        tzid = validate_timezone(evt.get("timezone", default_tz))
+    except IcsError as exc:
+        raise IcsError(f"event #{index} ({summary}): {exc}") from exc
 
     uid_raw = evt.get("uid")
     uid = (
@@ -401,10 +415,8 @@ def build_calendar(data: object) -> str:
     if name:
         lines.append(f"X-WR-CALNAME:{escape_text(str(name))}")
 
-    default_tz = data.get("timezone")
-    if default_tz:
-        if not isinstance(default_tz, str):
-            raise IcsError("'timezone' must be a string (IANA name, e.g. Asia/Shanghai)")
+    default_tz = validate_timezone(data.get("timezone"))
+    if default_tz is not None:
         lines.append(f"X-WR-TIMEZONE:{default_tz}")
 
     for index, evt in enumerate(events):
@@ -565,3 +577,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

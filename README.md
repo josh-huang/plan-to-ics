@@ -245,6 +245,13 @@ almost always what you want for a personal plan, and it sidesteps the classic
 the top-level `timezone` to any IANA name (`Asia/Singapore`, `America/New_York`,
 …).
 
+Timezone names are checked against the IANA database before export. Unknown,
+empty, or malformed names produce a validation error instead of an invalid
+calendar. Omit `timezone` (or set it to `null`) for floating local time; an
+event-level `null` also overrides a calendar-wide timezone. Python uses the
+system timezone database; if your system has none (commonly Windows), install
+it with `pip install tzdata`.
+
 ## 📁 Repo layout
 
 ```text
@@ -287,7 +294,9 @@ The generator enforces the parts of RFC 5545 that most commonly break imports:
 
 Bug reports and pull requests are welcome. Before changing the generator, run
 `python -m plan_to_ics --selftest` and add a case for the bug you're fixing.
+Run the regression suite with `python -m unittest discover -s tests -v`.
 
 ## 📄 License
 
 [MIT](./LICENSE) © 2026 Josh Huang
+
